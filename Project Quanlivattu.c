@@ -102,9 +102,13 @@ void inputMaterial(Material *material, int materialCount, Material *list) {
     material->unit[strcspn(material->unit, "\n")] = '\0';       // Nhap Don vi cho san pham ( Kg, Gam)
     printf("Nhap vao so luong vat tu: ");
     material->qty = inputIntRange(0, 100000000);       // gioi han so luong cho vat
-    printf("Nhap Category (Dien tu/ gia dung/ thiet yeu): ");    // Phân Trang chia vật thành 3 đồ riêng
-    fgets(material -> category, sizeof(material -> category), stdin);
-    material -> category[strcspn(material -> category, "\n")] = '\0';
+    printf("Chon category:\n1. Do gia dung\n2. Do dien tu\n3. Do thiet yeu\nLua chon: ");
+    int catChoice = inputIntRange(1,3);
+    switch(catChoice){
+        case 1: strcpy(material->category,"Do gia dung"); break;
+        case 2: strcpy(material->category,"Do dien tu"); break;
+        case 3: strcpy(material->category,"Do thiet yeu"); break;
+    }
     material->status = 1;
 
     printf("Da them vat tu thanh cong, voi ma %s!\n", material->matID);
@@ -116,7 +120,7 @@ void updateMaterial(Material *list, int count) {
     id[strcspn(id, "\n")] = '\0';
     int index = -1;
     for (int i = 0; i < count; i++) {
-        if (strcmp(list[i].matID, id) == 0) {
+        if (strcmp(list[i].matID, id) == 0) {     // so sánh ID(i) với id mới nhập có trùng nhau không
             index = i;
             break;
         }
@@ -140,7 +144,6 @@ void printMaterial(Material *list, int count) {
         printf("Danh sach rong!");
         return;
     }
-
     int catChoice;
     printf("\nChon category:\n");
     printf("1. Do gia dung\n");
@@ -149,7 +152,6 @@ void printMaterial(Material *list, int count) {
     printf("Nhap lua chon: ");
     scanf("%d", &catChoice);
     clearbuffer();
-
     char *catName;
     switch (catChoice) {
         case 1: catName = "Do gia dung"; break;
@@ -159,33 +161,27 @@ void printMaterial(Material *list, int count) {
             printf("Lua chon khong hop le!\n");
             return;
     }
-
     int filteredIndexes[MAX_S];        //
     int filteredCount = 0;
-
     // Lọc danh sách theo category
     for (int i = 0; i < count; i++) {
-        if (strcmp(list[i].category, catName) == 0) {  // so sánh vật tư trong list với case mà người dùng chọn trùng sẽ giữ lại
-            filteredIndexes[filteredCount++] = i;  /* Nếu vật tư đúng category, lưu chỉ số i vào mảng filteredIndexes.
-            filteredCount++ tăng biến đếm sau khi gán, đảm bảo các index được lưu liên tiếp.*/
+        if (strcmp(list[i].category, catName) == 0) {
+            filteredIndexes[filteredCount++] = i;   // nếu vật tư đúng categoty lưu i vào mảng filteredIndexes
+            // filteredCount++ lien tuc tang dam bao cac index tiep theo duoc luu
         }
     }
-
     if (filteredCount == 0) {
         printf("Khong co vat tu trong category %s!\n", catName);
         return;
     }
-
-    int page = 0, itemsPerPage = 10;        // lưu số trang hiện tại bắt đầu bằng 0 .  và hiển thị tối đa 10 mục mõi trang
-    int totalPages = filteredCount / itemsPerPage;     // chia lấy nguyên    25 / 10 = 2 được hai trang đầy đủ 5 vật tư tính sau
-    if (filteredCount % itemsPerPage != 0) totalPages++; // chia lấy dư để hiện thị số trang dư mà ở trên đã chia
-
+    int page = 0, itemsPerPage = 10;
+    int totalPages = filteredCount / itemsPerPage;    // chia lay nguyen 20 /10 duoc 2 trang con du 5 tinh sau
+    if (filteredCount % itemsPerPage != 0) totalPages++; // chia lay du nhap du khi chia vao trang nay
     while (1) {
         printf("\n===== DANH SACH VAT TU - %s (Trang %d/%d) =====\n", catName, page + 1, totalPages);
         int start = page * itemsPerPage;
         int end = start + itemsPerPage;
         if (end > filteredCount) end = filteredCount;
-
         for (int i = start; i < end; i++) {
             int idx = filteredIndexes[i];
             printf("Ma: %s | Ten: %s | Don vi: %s | So luong: %d | Trang thai: %s\n",
@@ -195,7 +191,6 @@ void printMaterial(Material *list, int count) {
                    list[idx].qty,
                    list[idx].status ? "Su dung" : "Het su dung");
         }
-
         printf("\n[N] Trang sau | [P] Trang truoc | [Q] Thoat: ");
         char c = getchar();
         clearbuffer();
@@ -208,6 +203,72 @@ void printMaterial(Material *list, int count) {
         }
     }
 }
+void managerStatus(Material *list, int count) {
+    char id[10];
+    int i, choice;
+    if (count == 0) {
+        printf("Chua co vat tu nao!");
+        return;
+    }
+    printf("Nhap ID vat tu can quan li trang thai: ");
+    fgets(id,sizeof(id),stdin);
+    id [strcspn(id,"\n")] = '\0';
+    for (i = 0; i < count; i++) {
+        printf("Trang thai hien tai cua vat tu %s\n: %s",list[i].matID,list[i].status ? "Active" : "Locked");
+    printf("Chon trang thai moi (1 = Active, 0 = Locket): ");
+        choice = inputIntRange(0,1);
+        list[i].status = choice;
+        printf("Cap Nhap trang thai thanh cong!");
+        return;
+    }
+    printf("Khong tim thay ma vat tu!");
+}
+void searchMaterialByID(Material *list, int count) {
+    if (count == 0) {
+        printf("Danh sach rong!\n");
+        return;
+    }
+    char id[20];
+    printf("Nhap ID can tim: ");
+    fgets(id, sizeof(id), stdin);
+    id[strcspn(id, "\n")] = '\0';
+
+    for (int i = 0; i < count; i++) {
+        if (strcmp(list[i].matID, id) == 0) {
+            printf("\n=== THONG TIN VAT TU ===\n");
+            printf("Ma: %s\n", list[i].matID);
+            printf("Ten: %s\n", list[i].name);
+            printf("Don vi: %s\n", list[i].unit);
+            printf("So luong: %d\n", list[i].qty);
+            printf("Trang thai: %s\n", list[i].status ? "Su dung" : "Het su dung");
+            printf("Loai: %s\n", list[i].category);
+            return;
+        }
+    }
+    printf("Khong tim thay vat tu co ID %s!\n", id);
+}
+void searchMaterialByName(Material *list, int count) {
+    if (count == 0) {
+        printf("Danh sach rong!\n");
+        return;
+    }
+    char name[50];
+    printf("Nhap ten can tim: ");
+    fgets(name, sizeof(name), stdin);
+    name[strcspn(name, "\n")] = '\0';
+    int found = 0;
+    for (int i = 0; i < count; i++) {
+        if (strstr(list[i].name, name) != NULL) {    // tìm chuỗi con
+            if (!found) printf("\n=== KET QUA TIM KIEM ===\n");
+            found = 1;
+            printf("Ma: %s | Ten: %s | Don vi: %s | So luong: %d | Loai: %s\n",
+                   list[i].matID, list[i].name, list[i].unit, list[i].qty, list[i].category);
+        }
+    }
+    if (!found) {
+        printf("Khong tim thay vat tu ten chua: %s!\n", name);
+    }
+}
 int main() {
     int choice;
     Material materials[MAX_S];
@@ -218,7 +279,6 @@ int main() {
         menu();
         printf("Nhap lua chon: ");
         choice = inputIntRange(0, 8);
-
         switch (choice) {
             case 1:
                 inputMaterial(&materials[materialCount], materialCount, materials);
@@ -226,6 +286,21 @@ int main() {
                 break;
             case 2:
                 updateMaterial(materials, materialCount);
+                break;
+            case 3:
+                managerStatus(materials, materialCount);
+                break;
+            case 4:
+                printf("\n=== TIM KIEM VAT TU ===\n");
+                printf("1. Tim theo ID\n");
+                printf("2. Tim theo Ten\n");
+                printf("Nhap lua chon: ");
+                int tk;
+                tk = inputIntRange(1, 2);
+                if (tk == 1)
+                    searchMaterialByID(materials, materialCount);
+                else
+                    searchMaterialByName(materials, materialCount);
                 break;
             case 5:
                 printMaterial(materials, materialCount);
