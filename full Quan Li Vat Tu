@@ -48,6 +48,12 @@ void sortMaterial(Material *materials, int countMaterial);
 void transactionMenu(Material *materials, int countMat, Transaction *trans, int *countTrans);
 void viewTransactionHistory(Transaction logs[], int logCount);
 
+char* getStatusString(int status){
+    if(status == 1) return GREEN "Active" RESET;
+    if(status == 0) return YELLOW "Locked" RESET;
+    return RED "Deleted" RESET;
+}
+
 int main() {
     Material *materials = malloc(MAX_MAT * sizeof(Material));
     Transaction *trans = malloc(MAX_TRANS * sizeof(Transaction));
@@ -128,28 +134,41 @@ void clearBuffer(){
 }
 
 int inputIntRange(int min, int max){
+    char buffer[100];
     int x;
-    char c;
-    while (1) {
-        if(scanf("%d%c", &x, &c) != 2 || c != '\n'){
+    while(1){
+        if(fgets(buffer, sizeof(buffer), stdin) == NULL){
             printf(RED "Invalid input! Enter a number: " RESET);
-            clearBuffer();
+            continue;
+
+        }
+        buffer[strcspn(buffer, "\n")] = 0;
+
+            if(strlen(buffer) == 0){
+                printf(RED "Input cannot be empty! Enter a number: " RESET);
+                continue;
+            }
+
+        char extra;
+        if(sscanf(buffer, "%d %c", &x, &extra) != 1){
+            printf(RED "Invalid input! Enter a number: " RESET);
             continue;
         }
+
         if(x < min || x > max){
             printf(YELLOW "Input must be between [%d - %d]: " RESET, min, max);
             continue;
         }
+
         return x;
+        }
     }
-}
 
 int isValidMaterial(char *id){
-    id[strcspn(id,"\n")] = '\0';
     int len = strlen(id);
     if(len == 0 || len > 9) return 0;
-    for(int i=0;i<len;i++){
-        if(!isalnum(id[i])) return 0;
+    for(int i = 0; i < len; i++){
+        if(!isalnum((unsigned char)id[i])) return 0;
     }
     return 1;
 }
@@ -166,8 +185,15 @@ int isDuplicateMaterial(Material *list,int count,char *ID){
 void inputID(char *id, Material *list, int count, bool checkDuplicate){
     while(1){
         printf("Enter material ID (max 9 chars, letters/numbers only): ");
-        fgets(id, 10, stdin);
-        id[strcspn(id,"\n")]=0;
+        if (fgets(id, 11, stdin) == NULL) continue;
+
+        size_t len = strlen(id);
+        if (len > 0 && id[len - 1] == '\n') {
+            id[len - 1] = '\0';
+        } else {
+            clearBuffer();
+        }
+
         if(!isValidMaterial(id)){
             printf(RED "Invalid ID! Try again.\n" RESET);
             continue;
@@ -181,7 +207,7 @@ void inputID(char *id, Material *list, int count, bool checkDuplicate){
 }
 
 void menu() {
-    printf(BOLD CYAN "\n=============== MATERIAL MANAGEMENT =============\n" RESET);
+    printf(BOLD CYAN "\n=+=+=+=+=+=+=+= MATERIAL MANAGEMENT =+=+=+=+=+=+=\n" RESET);
     printf(YELLOW "1. Add new material\n");
     printf("2. Update material\n");
     printf("3. Manage status\n");
@@ -197,14 +223,30 @@ void menu() {
 
 void inputMaterial(Material *material, Material *list, int count){
     inputID(material->matID, list, count, true);
-    while(1){
+    int i;
+    while (1) {
         printf("Enter material name: ");
         fgets(material->name, sizeof(material->name), stdin);
         material->name[strcspn(material->name, "\n")] = '\0';
-        if(strlen(material->name) == 0){
+
+        if (strlen(material->name) == 0) {
             printf(RED "Name cannot be empty!\n" RESET);
             continue;
         }
+
+        int valid = 1;
+        for (i = 0; i < strlen(material->name); i++) {
+            if (!isalpha((unsigned char)material->name[i]) && material->name[i] != ' ') {
+                valid = 0;
+                break;
+            }
+        }
+
+        if (!valid) {
+            printf(RED "Name must contain letters only!\n" RESET);
+            continue;
+        }
+
         break;
     }
     while(1){
@@ -213,6 +255,17 @@ void inputMaterial(Material *material, Material *list, int count){
         material->unit[strcspn(material->unit, "\n")] = '\0';
         if(strlen(material->unit) == 0){
             printf(RED "Unit cannot be empty!\n" RESET);
+            continue;
+        }
+        int valid = 1;
+        for (i = 0; i < strlen(material ->unit); i++) {
+            if (!isalpha((unsigned char)material ->unit[i]) && material ->unit[i] != ' ' ){
+                valid = 0;
+                break;
+            }
+        }
+        if (!valid) {
+            printf(RED "Name must contain letters only!\n" RESET);
             continue;
         }
         break;
@@ -232,41 +285,99 @@ void inputMaterial(Material *material, Material *list, int count){
 
 void updateMaterial(Material *list, int count) {
     char id[10];
-    inputID(id, list, count, false);
-    for (int i = 0; i < count; i++) {
-        if (strcmp(list[i].matID, id) == 0) {
-            if (list[i].status == 0) {
-                printf(RED "Material is locked!\n" RESET);
-                return;
-            }
-            while(1){
-                printf("Enter new name: ");
-                fgets(list[i].name, sizeof(list[i].name), stdin);
-                list[i].name[strcspn(list[i].name, "\n")] = '\0';
-                if(strlen(list[i].name) == 0){
-                    printf(RED "Name cannot be empty!\n" RESET);
-                    continue;
-                }
+
+    while (1) {
+        inputID(id, list, count, false);
+
+        int idx = -1;
+        for (int i = 0; i < count; i++) {
+            if (strcmp(list[i].matID, id) == 0) {
+                idx = i;
                 break;
             }
-            while(1){
-                printf("Enter new unit: ");
-                fgets(list[i].unit, sizeof(list[i].unit), stdin);
-                list[i].unit[strcspn(list[i].unit, "\n")] = '\0';
-                if(strlen(list[i].unit) == 0){
-                    printf(RED "Unit cannot be empty!\n" RESET);
-                    continue;
-                }
-                break;
-            }
-            printf("Enter new quantity: ");
-            list[i].qty = inputIntRange(0, 100000);
-            printf(GREEN "Updated successfully!\n" RESET);
-            return;
         }
+
+        if (idx == -1) {
+            printf(RED "Material ID not found! Enter again.\n" RESET);
+            continue;
+        }
+
+        if (list[idx].status == -1) {
+            printf(RED "Material is deleted! Enter another ID.\n" RESET);
+            continue;
+        }
+
+        if (list[idx].status == 0) {
+            printf(RED "Material is locked! Enter another ID.\n" RESET);
+            continue;
+        }
+
+        while (1) {
+            printf("Enter new name: ");
+            fgets(list[idx].name, sizeof(list[idx].name), stdin);
+            list[idx].name[strcspn(list[idx].name, "\n")] = '\0';
+
+            if (strlen(list[idx].name) == 0) {
+                printf(RED "Name cannot be empty!\n" RESET);
+                continue;
+            }
+
+            int valid = 1;
+            for (int k = 0; k < strlen(list[idx].name); k++) {
+                if (!isalpha((unsigned char)list[idx].name[k]) &&
+                    list[idx].name[k] != ' ') {
+                    valid = 0;
+                    break;
+                }
+            }
+            if (!valid) {
+                printf(RED "Name must contain letters only!\n" RESET);
+                continue;
+            }
+            break;
+        }
+
+        while (1) {
+            printf("Enter new unit: ");
+            fgets(list[idx].unit, sizeof(list[idx].unit), stdin);
+            list[idx].unit[strcspn(list[idx].unit, "\n")] = '\0';
+
+            if (strlen(list[idx].unit) == 0) {
+                printf(RED "Unit cannot be empty!\n" RESET);
+                continue;
+            }
+
+            int valid = 1;
+            for (int k = 0; k < strlen(list[idx].unit); k++) {
+                if (!isalpha((unsigned char)list[idx].unit[k]) &&
+                    list[idx].unit[k] != ' ') {
+                    valid = 0;
+                    break;
+                }
+            }
+            if (!valid) {
+                printf(RED "Unit must contain letters only!\n" RESET);
+                continue;
+            }
+            break;
+        }
+
+        printf("Enter new quantity: ");
+        list[idx].qty = inputIntRange(0, 100000);
+
+        printf("Select new category:\n1. Household\n2. Electronics\n3. Essential\nChoice: ");
+        int catChoice = inputIntRange(1,3);
+        switch(catChoice){
+            case 1: strcpy(list[idx].category,"Household"); break;
+            case 2: strcpy(list[idx].category,"Electronics"); break;
+            case 3: strcpy(list[idx].category,"Essential"); break;
+        }
+
+        printf(GREEN "Updated successfully!\n" RESET);
+        return;
     }
-    printf(RED "Material ID not found!\n" RESET);
 }
+
 
 void manageStatus(Material *list, int count){
     if(count == 0){
@@ -301,17 +412,18 @@ void manageStatus(Material *list, int count){
 }
 
 void searchMaterial(Material *list, int count){
-    if(count==0){ printf(YELLOW "No material available!\n" RESET); return; }
+    if(count==0) {
+        printf(YELLOW "No material available!\n" RESET); return;
+    }
     char keyword[50];
     printf("Enter ID or name to search: ");
     fgets(keyword, sizeof(keyword), stdin);
     keyword[strcspn(keyword, "\n")] = '\0';
     int found=0;
-    for(int i=0;i<count;i++){
+    for(int i = 0; i < count; i++){
         if(strstr(list[i].matID, keyword) || strstr(list[i].name, keyword)){
-            char *statusStr = (list[i].status==1) ? GREEN "Active" RESET : (list[i].status==0?YELLOW "Locked" RESET:RED "Deleted" RESET);
             printf("%-10s | %-15s | %-10s | %-7d | %-15s | %-10s\n",
-                   list[i].matID, list[i].name, list[i].unit, list[i].qty, list[i].category, statusStr);
+                   list[i].matID, list[i].name, list[i].unit, list[i].qty, list[i].category, getStatusString(list[i].status));
             found++;
         }
     }
@@ -320,9 +432,9 @@ void searchMaterial(Material *list, int count){
 
 void printMaterial(Material *list, int count){
     int itemsPerPage=10, page=0, displayCount=0;
-    for(int i=0;i<count;i++) if(list[i].status!=-1) displayCount++;
-    if(displayCount==0){ printf(YELLOW "Material list is empty!\n" RESET); return; }
-    int totalPages = (displayCount + itemsPerPage -1)/itemsPerPage;
+    for(int i = 0; i < count; i++) if(list[i].status != -1) displayCount++;
+    if(displayCount == 0){ printf(YELLOW "Material list is empty!\n" RESET); return; }
+    int totalPages = (displayCount + itemsPerPage -1) / itemsPerPage;
     while(1){
         printf(BOLD "\n+=+=+=+=+=+=+ MATERIAL LIST (Page %d/%d) +=+=+=+=+=+=+=+=+\n" RESET, page+1, totalPages);
         printf("%-10s | %-15s | %-10s | %-7s | %-15s | %-10s\n","ID","Name","Unit","Qty","Category","Status");
@@ -330,15 +442,14 @@ void printMaterial(Material *list, int count){
         for(int i=0;i<count && shown<end;i++){
             if(list[i].status!=-1){
                 if(shown>=start){
-                    char *statusStr = (list[i].status==1) ? GREEN "Active" RESET : (list[i].status==0?YELLOW "Locked" RESET:RED "Deleted" RESET);
                     printf("%-10s | %-15s | %-10s | %-7d | %-15s | %-10s\n",
-                           list[i].matID,list[i].name,list[i].unit,list[i].qty,list[i].category,statusStr);
+                           list[i].matID,list[i].name,list[i].unit,list[i].qty,list[i].category,getStatusString(list[i].status));
                 }
                 shown++;
             }
         }
         printf("\n[N] Next | [P] Previous | [Q] Quit: ");
-        char c=getchar(); clearBuffer();
+        char c= getchar(); clearBuffer();
         if(c == 'N' || c == 'n'){ if(page+1<totalPages) page++; }
         else if(c == 'P' || c == 'p'){ if(page>0) page--; }
         else break;
@@ -375,9 +486,13 @@ void transactionMenu(Material *materials, int countMat, Transaction *trans, int 
             if(materials[i].status==-1){ printf(RED "Material deleted!\n" RESET); return; }
             printf("1. IN\n2. OUT\nChoice: "); int choice=inputIntRange(1,2);
             printf("Enter quantity: "); int qty=inputIntRange(1,1000000);
+            if (*countTrans >= MAX_TRANS) {
+                printf(RED "Transaction log is full! Cannot record new transaction.\n" RESET);
+                return;
+            }
             sprintf(trans[*countTrans].transID,"T%04d",*countTrans+1);
             strcpy(trans[*countTrans].matID,id);
-            strcpy(trans[*countTrans].date,"01/12/2025");
+            strcpy(trans[*countTrans].date,"N/A");
             trans[*countTrans].amount=qty;
             if(choice==1){ strcpy(trans[*countTrans].type,"IN"); materials[i].qty+=qty; }
             else{
@@ -396,12 +511,13 @@ void viewTransactionHistory(Transaction logs[], int logCount){
     char id[10]; inputID(id,NULL,0,false);
     int found=0;
     printf(BOLD "\n===== TRANSACTION HISTORY OF %s =====\n" RESET, id);
+    printf("%-10s | %-5s | %-7s | %-10s\n", "TransID", "Type", "Amount", "Date");
     for(int i=0;i<logCount;i++){
         if(strcmp(logs[i].matID,id)==0){
             found=1;
             printf("%-10s | %-5s | %-7d | %-10s\n",
                    logs[i].transID,
-                   strcmp(logs[i].type,"IN")==0?"IN":"OUT",
+                   logs[i].type,
                    logs[i].amount,
                    logs[i].date);
         }
